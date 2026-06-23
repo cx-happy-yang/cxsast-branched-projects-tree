@@ -2,22 +2,19 @@
 
 A web tool for managing CxSAST projects — view branched projects as a tree, select with cascade, and safely bulk-delete (only leaf nodes are deleted, so your tree structure is never broken).
 
-- [For End Users (Deployment)](#deployment)
-- [For Developers](#development)
-
 ---
 
-## Deployment
+## For Customers (Deployment)
 
-The application is distributed as a single `.exe` file. No Python or other dependencies are required on the target server.
+> **You do not need Python or any build tools.** Download the ready-to-run `.exe` from the [Releases page](https://github.com/cx-happy-yang/cxsast-branched-projects-tree/releases) and follow the steps below.
 
 ### Step 1: Download
 
-Download the latest `CxSAST-TreeManager.exe` from the [Releases page](https://github.com/cx-happy-yang/cxsast-branched-projects-tree/releases).
+Go to the [Releases page](https://github.com/cx-happy-yang/cxsast-branched-projects-tree/releases), find the latest version, and download **`CxSAST-TreeManager.exe`**.
 
 ### Step 2: Place on Server
 
-Copy `CxSAST-TreeManager.exe` to the server where CxSAST is installed (or any Windows machine that can reach the CxSAST server over the network). For example:
+Copy the `.exe` to the CxSAST server, or any Windows machine on the same network. For example:
 
 ```
 C:\Tools\CxSAST-TreeManager\CxSAST-TreeManager.exe
@@ -25,44 +22,44 @@ C:\Tools\CxSAST-TreeManager\CxSAST-TreeManager.exe
 
 ### Step 3: Configure
 
-Set the following **system environment variables** (System Properties → Advanced → Environment Variables → System variables):
+Set the following **system environment variables**:
+
+1. Open **System Properties** → **Advanced** → **Environment Variables**
+2. Under **System variables**, add each variable:
 
 | Variable | Required | Example | Description |
 |----------|----------|---------|-------------|
 | `CXSAST_BASE_URL` | Yes | `https://cxserver.company.local` | Your CxSAST server URL |
-| `CXSAST_USERNAME` | Yes | `Admin` | CxSAST username with manage-project permissions |
+| `CXSAST_USERNAME` | Yes | `Admin` | CxSAST user with manage-project permissions |
 | `CXSAST_PASSWORD` | Yes | `••••` | CxSAST password |
-| `CXSAST_VERIFY` | No | `False` | Set to `False` if using self-signed certificate; or path to a CA cert file |
-| `APP_API_KEY` | Recommended | `my-secret-key-123` | Protects the API; set this and share with users |
+| `CXSAST_VERIFY` | No | `False` | Set to `False` for self-signed certs; or path to a CA cert file |
+| `APP_API_KEY` | Recommended | `my-secret-key-123` | Protects the API — share this with users so they can access the UI |
 | `APP_PORT` | No | `5000` | HTTP port (default: 5000) |
-| `APP_HOST` | No | `127.0.0.1` | Bind address (default: `0.0.0.0`; use `127.0.0.1` for IIS proxy) |
+| `APP_HOST` | No | `127.0.0.1` | Bind address (default: `0.0.0.0`; set to `127.0.0.1` if using IIS proxy) |
 
-> **Note:** After setting environment variables, you may need to restart the Command Prompt or the machine for them to take effect.
+> Restart any open Command Prompt windows after setting these variables.
 
 ### Step 4: Run
 
-Open a **Command Prompt (as Administrator)** and run:
+Open **Command Prompt as Administrator** and run:
 
 ```cmd
 C:\Tools\CxSAST-TreeManager\CxSAST-TreeManager.exe
 ```
 
 You should see:
+
 ```
 Starting production server on 0.0.0.0:5000
 ```
 
-Open a browser and go to `http://localhost:5000`. You should see the project tree.
+### Step 5: Open in Browser
 
-### Step 5: Access the UI
-
-If you set `APP_API_KEY`, users must include it in the URL:
+Go to `http://localhost:5000`. If you set `APP_API_KEY`, include it in the URL:
 
 ```
-http://<server>:5000/?api_key=my-secret-key-123
+http://localhost:5000/?api_key=my-secret-key-123
 ```
-
-Or bookmark it with the key included.
 
 ---
 
@@ -162,32 +159,23 @@ https://cxserver.company.local/tree-manager/?api_key=my-secret-key-123
 
 ---
 
-## Development
+## For Developers
 
-### Setup
+Prerequisites: Python 3.12+, git.
 
 ```bash
 git clone git@github.com:cx-happy-yang/cxsast-branched-projects-tree.git
 cd cxsast-branched-projects-tree/backend
 pip install -r requirements.txt
-cp .env.example .env          # edit .env with your dev CxSAST credentials
-python app.py                 # starts on http://localhost:5000
+cp .env.example .env        # edit with your dev CxSAST credentials
+python app.py               # starts on http://localhost:5000
 ```
 
-### Build a Release
-
-```bash
-cd backend
-pip install pyinstaller
-python -m PyInstaller --clean --noconfirm cxsast-tree-manager.spec
-# output: dist/CxSAST-TreeManager.exe
-```
-
-### Create a Versioned Release
+### Cut a Release
 
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-GitHub Actions will build the `.exe`, create a release, and attach the binary automatically.
+Pushing a `v*` tag triggers GitHub Actions, which builds `CxSAST-TreeManager.exe` and publishes it as a release. Customers then download it from the Releases page — no local build needed.
