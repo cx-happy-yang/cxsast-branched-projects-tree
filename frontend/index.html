@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CxSAST Branched Projects Tree Manager</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <h1>CxSAST Branched Projects Tree</h1>
+        <span id="server-indicator" class="server-indicator" title="Server status">●</span>
+      </div>
+      <div class="header-right">
+        <span id="project-count" class="count-badge">0 projects</span>
+        <button id="btn-refresh" class="btn btn-secondary" title="Refresh tree">
+          &#x21bb; Refresh
+        </button>
+        <button id="btn-delete-selected" class="btn btn-danger" disabled>
+          Delete Selected (<span id="selected-count">0</span>)
+        </button>
+      </div>
+    </header>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <button id="btn-expand-all" class="btn btn-sm">Expand All</button>
+        <button id="btn-collapse-all" class="btn btn-sm">Collapse All</button>
+      </div>
+      <div class="toolbar-right">
+        <label class="filter-label">
+          <input type="checkbox" id="chk-show-branched-only"> Branched projects only
+        </label>
+        <input type="text" id="filter-input" class="filter-input" placeholder="Filter by name...">
+      </div>
+    </div>
+
+    <!-- Notification area -->
+    <div id="notification" class="notification hidden"></div>
+
+    <!-- Tree container -->
+    <main id="tree-container" class="tree-container">
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Loading projects from CxSAST...</p>
+      </div>
+      <div id="empty-state" class="empty-state hidden">
+        <p>No projects found.</p>
+      </div>
+      <div id="tree-content"></div>
+    </main>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Confirm Deletion</h2>
+        <button id="modal-close" class="btn-close" title="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete the following projects?</p>
+        <div id="modal-project-list" class="modal-project-list"></div>
+        <p class="modal-warning">
+          <strong>Warning:</strong> This action cannot be undone. Only leaf projects (those without child branches) are eligible for deletion.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button id="modal-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="modal-confirm" class="btn btn-danger">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
