@@ -2,4 +2,4 @@ flask>=3.0,<4.0
 flask-cors>=4.0,<5.0
 python-dotenv>=1.0,<2.0
 waitress>=3.0,<4.0
-checkmarxpythonsdk==1.8.8
+checkmarxpythonsdk @ git+https://github.com/checkmarx-ts/checkmarx-python-sdk.git@master
