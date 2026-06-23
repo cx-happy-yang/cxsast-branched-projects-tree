@@ -16,11 +16,6 @@ try:
 except ImportError:
     pass  # dotenv is optional; config can be set via real environment variables
 
-# --- SDK path ---
-sdk_path = os.getenv("CHECKMARX_SDK_PATH", "")
-if sdk_path and sdk_path not in sys.path:
-    sys.path.insert(0, sdk_path)
-
 from CheckmarxPythonSDK.api_client import ApiClient
 from CheckmarxPythonSDK.configuration import Configuration
 from CheckmarxPythonSDK.CxRestAPISDK import ProjectsAPI, TeamAPI

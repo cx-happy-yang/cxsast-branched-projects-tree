@@ -7,8 +7,7 @@ A web application for managing CxSAST projects with a tree view and safe bulk de
 ```bash
 cd backend
 pip install -r requirements.txt
-pip install -e E:\github.com\checkmarx-python-sdk --no-deps
-# Edit .env with your CxSAST credentials
+# Copy backend/.env.example to backend/.env and edit with your CxSAST credentials
 python app.py
 # Open http://localhost:5000
 ```
@@ -20,6 +19,7 @@ python app.py
 On a dev machine with Python:
 ```cmd
 cd backend
+pip install -r requirements.txt
 pip install pyinstaller waitress
 build.bat
 ```

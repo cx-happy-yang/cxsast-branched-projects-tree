@@ -9,8 +9,7 @@ echo ========================================
 echo Building CxSAST Tree Manager...
 echo ========================================
 echo.
-echo Prerequisites: pip install -r requirements.txt
-echo                pip install pyinstaller waitress
+echo Prerequisites: pip install -r requirements.txt pyinstaller waitress
 echo.
 
 python -m PyInstaller --clean --noconfirm cxsast-tree-manager.spec

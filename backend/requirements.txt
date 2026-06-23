@@ -1,4 +1,4 @@
 flask>=3.0,<4.0
 flask-cors>=4.0,<5.0
 python-dotenv>=1.0,<2.0
-httpx>=0.28.1
+checkmarxpythonsdk @ git+https://github.com/checkmarx-ts/checkmarx-python-sdk.git@v1.8.8
