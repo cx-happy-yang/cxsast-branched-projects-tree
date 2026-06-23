@@ -2,11 +2,8 @@ name: Build Windows EXE
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  release:
-    types: [published]
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -32,15 +29,16 @@ jobs:
           cd backend
           python -m PyInstaller --clean --noconfirm cxsast-tree-manager.spec
 
-      - name: Archive artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CxSAST-TreeManager
+          name: CxSAST-TreeManager-${{ github.ref_name }}
           path: backend/dist/CxSAST-TreeManager.exe
           if-no-files-found: error
 
-      - name: Upload to release
-        if: github.event_name == 'release'
+      - name: Create release
         uses: softprops/action-gh-release@v2
         with:
+          name: ${{ github.ref_name }}
           files: backend/dist/CxSAST-TreeManager.exe
+          generate_release_notes: true
