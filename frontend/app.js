@@ -26,7 +26,7 @@
   const $btnExpandAll = document.getElementById('btn-expand-all');
   const $btnCollapseAll = document.getElementById('btn-collapse-all');
   const $filterInput = document.getElementById('filter-input');
-  const $chkBranchedOnly = document.getElementById('chk-show-branched-only');
+  const $filterType = document.getElementById('filter-type');
   const $notification = document.getElementById('notification');
   const $modalOverlay = document.getElementById('modal-overlay');
   const $modalList = document.getElementById('modal-project-list');
@@ -509,17 +509,23 @@
 
   function applyFilter() {
     var textFilter = ($filterInput.value || '').trim().toLowerCase();
-    var branchedOnly = $chkBranchedOnly.checked;
+    var filterMode = $filterType.value;
 
     var matchingIds = new Set();
 
-    if (textFilter || branchedOnly) {
-      // Search the DATA (flatNodeMap), not the DOM
+    if (textFilter || filterMode !== 'all') {
       state.flatNodeMap.forEach(function (node, pid) {
         var name = (node.name != null ? String(node.name) : '');
         var nameMatch = !textFilter || name.toLowerCase().indexOf(textFilter) !== -1;
-        var branchMatch = !branchedOnly || node.child_count > 0 || node.is_branched;
-        if (nameMatch && branchMatch) {
+
+        var typeMatch = true;
+        if (filterMode === 'branched') {
+          typeMatch = node.child_count > 0 || node.is_branched;
+        } else if (filterMode === 'orphaned') {
+          typeMatch = !!node.is_dangling;
+        }
+
+        if (nameMatch && typeMatch) {
           matchingIds.add(pid);
         }
       });
@@ -533,7 +539,7 @@
       var li = allNodes[i];
       try {
         var pid = parseInt(li.dataset.projectId, 10);
-        var show = !textFilter && !branchedOnly ? true : matchingIds.has(pid);
+        var show = !textFilter && filterMode === 'all' ? true : matchingIds.has(pid);
         if (show) {
           li.classList.remove('hidden');
           showAncestors(li);
@@ -610,7 +616,7 @@
   $btnExpandAll.addEventListener('click', expandAll);
   $btnCollapseAll.addEventListener('click', collapseAll);
   $filterInput.addEventListener('input', onFilterChange);
-  $chkBranchedOnly.addEventListener('change', applyFilter);
+  $filterType.addEventListener('change', applyFilter);
 
   // -----------------------------------------------------------------------
   // Utilities

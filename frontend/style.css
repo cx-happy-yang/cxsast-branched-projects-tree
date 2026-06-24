@@ -93,6 +93,13 @@ body {
   font-size: 0.85rem;
   width: 180px;
 }
+.filter-select {
+  padding: 4px 8px;
+  border: 1px solid #b2bec3;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: #fff;
+}
 
 /* Notification */
 .notification {
