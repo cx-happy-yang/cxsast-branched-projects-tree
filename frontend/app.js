@@ -146,7 +146,7 @@
     li.dataset.projectId = node.project_id;
 
     var row = document.createElement('div');
-    row.className = 'node-row';
+    row.className = 'node-row' + (node.is_deleted ? ' node-deleted' : '');
 
     // Toggle button
     var toggle = document.createElement('button');
@@ -162,18 +162,26 @@
     });
     row.appendChild(toggle);
 
-    // Checkbox
-    var cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.className = 'node-checkbox';
-    cb.checked = state.selectedIds.has(node.project_id);
-    cb.indeterminate = isIndeterminate(node);
-    cb.title = node.is_leaf ? 'Select for deletion' : 'Select this and all ' + countDescendants(node) + ' descendants for deletion';
-    cb.addEventListener('change', function () {
-      setNodeChecked(node, cb.checked);
-      refreshAllCheckboxes();
-    });
-    row.appendChild(cb);
+    // Checkbox — hidden for deleted projects
+    if (!node.is_deleted) {
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'node-checkbox';
+      cb.checked = state.selectedIds.has(node.project_id);
+      cb.indeterminate = isIndeterminate(node);
+      cb.title = node.is_leaf ? 'Select for deletion' : 'Select this and all ' + countDescendants(node) + ' descendants for deletion';
+      cb.addEventListener('change', function () {
+        setNodeChecked(node, cb.checked);
+        refreshAllCheckboxes();
+      });
+      row.appendChild(cb);
+    } else {
+      var cb = null;
+      var spacer = document.createElement('span');
+      spacer.style.width = '16px';
+      spacer.style.flexShrink = '0';
+      row.appendChild(spacer);
+    }
 
     // Label
     var label = document.createElement('div');
@@ -190,6 +198,12 @@
     label.appendChild(idSpan);
 
     // Badges
+    if (node.is_deleted) {
+      var delBadge = document.createElement('span');
+      delBadge.className = 'badge badge-deleted';
+      delBadge.textContent = 'Deleted';
+      label.appendChild(delBadge);
+    }
     if (node.is_dangling) {
       var dangBadge = document.createElement('span');
       dangBadge.className = 'badge badge-dangling';
@@ -240,27 +254,31 @@
 
     row.appendChild(label);
 
-    // Single delete button
-    var delBtn = document.createElement('button');
-    delBtn.className = 'delete-single';
-    delBtn.textContent = '\u2715';
-    delBtn.title = node.is_leaf ? 'Delete this project' : 'Delete this project and all ' + countDescendants(node) + ' descendants';
-    delBtn.addEventListener('click', function (e) {
-      e.stopPropagation();
-      var targets = collectLeafNodes(node);
-      if (targets.length > 0) confirmAndDelete(targets);
-    });
-    row.appendChild(delBtn);
+    // Single delete button — hidden for deleted projects
+    if (!node.is_deleted) {
+      var delBtn = document.createElement('button');
+      delBtn.className = 'delete-single';
+      delBtn.textContent = '\u2715';
+      delBtn.title = node.is_leaf ? 'Delete this project' : 'Delete this project and all ' + countDescendants(node) + ' descendants';
+      delBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var targets = collectLeafNodes(node);
+        if (targets.length > 0) confirmAndDelete(targets);
+      });
+      row.appendChild(delBtn);
+    }
 
-    // Row click
-    row.addEventListener('click', function (e) {
-      if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'checkbox') {
-        return;
-      }
-      var newChecked = !cb.checked;
-      setNodeChecked(node, newChecked);
-      refreshAllCheckboxes();
-    });
+    // Row click — only for non-deleted nodes
+    if (!node.is_deleted) {
+      row.addEventListener('click', function (e) {
+        if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'checkbox') {
+          return;
+        }
+        var newChecked = !cb.checked;
+        setNodeChecked(node, newChecked);
+        refreshAllCheckboxes();
+      });
+    }
 
     li.appendChild(row);
 
@@ -384,7 +402,7 @@
     var result = [];
     state.selectedIds.forEach(function (id) {
       var node = state.flatNodeMap.get(id);
-      if (node && node.is_leaf) result.push(node);
+      if (node && node.is_leaf && !node.is_deleted) result.push(node);
     });
     return result;
   }
@@ -524,9 +542,11 @@
 
         var typeMatch = true;
         if (filterMode === 'branched') {
-          typeMatch = node.child_count > 0 || node.is_branched;
+          typeMatch = !node.is_deleted && (node.child_count > 0 || node.is_branched);
         } else if (filterMode === 'orphaned') {
           typeMatch = !!node.is_dangling;
+        } else if (filterMode === 'deleted') {
+          typeMatch = !!node.is_deleted;
         }
 
         if (nameMatch && typeMatch) {

@@ -221,6 +221,10 @@ body {
 .badge-standalone { background: #dfe6e9; color: #636e72; }
 .badge-deprecated { background: #fab1a0; color: #8b0000; }
 .badge-dangling { background: #ff7675; color: #fff; }
+.badge-deleted { background: #b2bec3; color: #636e72; }
+
+.node-deleted { opacity: 0.5; }
+.node-deleted .node-name { text-decoration: line-through; }
 
 .node-team { font-size: 0.8rem; color: #636e72; white-space: nowrap; }
 

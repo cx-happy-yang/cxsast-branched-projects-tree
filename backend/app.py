@@ -97,7 +97,7 @@ def build_children_map(all_projects):
     return children_map
 
 
-def build_tree_node(project_id, projects_map, children_map, team_map, dangling_set=None, dangling_parent_info=None):
+def build_tree_node(project_id, projects_map, children_map, team_map, dangling_set=None, dangling_parent_info=None, deleted_ids=None):
     project = projects_map[project_id]
     child_ids = children_map.get(project_id, [])
     team_info = team_map.get(str(project.team_id) if project.team_id else "", {})
@@ -114,8 +114,11 @@ def build_tree_node(project_id, projects_map, children_map, team_map, dangling_s
         dangling_set = set()
     if dangling_parent_info is None:
         dangling_parent_info = {}
+    if deleted_ids is None:
+        deleted_ids = set()
 
-    is_dangling = project_id in dangling_set
+    is_deleted = project_id in deleted_ids
+    is_dangling = project_id in dangling_set and not is_deleted
     orphan_info = None
     if is_dangling and orig_id is not None:
         orphan_info = {
@@ -126,6 +129,7 @@ def build_tree_node(project_id, projects_map, children_map, team_map, dangling_s
     return {
         "project_id": project.project_id,
         "name": project.name,
+        "is_deleted": is_deleted,
         "team_id": project.team_id,
         "team_name": team_info.get("name", ""),
         "team_full_name": team_info.get("full_name", ""),
@@ -140,26 +144,40 @@ def build_tree_node(project_id, projects_map, children_map, team_map, dangling_s
         "is_leaf": len(child_ids) == 0,
         "child_count": len(child_ids),
         "children": sorted(
-            [build_tree_node(cid, projects_map, children_map, team_map, dangling_set, dangling_parent_info) for cid in child_ids],
+            [build_tree_node(cid, projects_map, children_map, team_map, dangling_set, dangling_parent_info, deleted_ids) for cid in child_ids],
             key=lambda n: (n["name"] or ""),
         ),
     }
 
 
 def build_full_tree():
+    # Fetch live projects
     all_projects, err = _safe_sdk_call(get_all_projects)
     if err:
         raise RuntimeError(err)
 
-    projects_map = {p.project_id: p for p in all_projects}
-    children_map = build_children_map(all_projects)
+    live_ids = {p.project_id for p in all_projects}
+
+    # Fetch all projects including deleted (for parent name resolution and
+    # to include deleted projects in the tree for visibility)
+    all_with_deleted, _ = _safe_sdk_call(
+        lambda: projects_api.get_all_project_details(show_also_deleted_projects=True)
+    )
+    if all_with_deleted is None:
+        all_with_deleted = all_projects
+
+    deleted_ids = {p.project_id for p in all_with_deleted} - live_ids
+
+    # Build tree from the full set (live + deleted)
+    projects_map = {p.project_id: p for p in all_with_deleted}
+    children_map = build_children_map(all_with_deleted)
 
     teams, err = _safe_sdk_call(team_api.get_all_teams)
     team_map = {}
     if err is None:
         team_map = {str(t.team_id): {"name": t.name, "full_name": t.full_name} for t in teams}
 
-    all_project_ids = {p.project_id for p in all_projects}
+    all_project_ids = {p.project_id for p in all_with_deleted}
     child_ids_set = set()
     for cids in children_map.values():
         child_ids_set.update(cids)
@@ -167,30 +185,25 @@ def build_full_tree():
     # Parents referenced by children but no longer exist (were deleted)
     dangling_parent_ids = set(children_map.keys()) - all_project_ids
 
-    # Fetch deleted parent names so we can show them in orphaned nodes
+    # Resolve deleted parent names for orphaned nodes
     dangling_parent_info = {}
-    if dangling_parent_ids:
-        all_with_deleted, del_err = _safe_sdk_call(
-            lambda: projects_api.get_all_project_details(show_also_deleted_projects=True)
-        )
-        if del_err is None:
-            for p in all_with_deleted:
-                if p.project_id in dangling_parent_ids:
-                    dangling_parent_info[p.project_id] = p.name
+    for p in all_with_deleted:
+        if p.project_id in dangling_parent_ids:
+            dangling_parent_info[p.project_id] = p.name
 
     # Children of deleted parents — treat them as roots
     dangling = set()
     for pid in dangling_parent_ids:
         dangling.update(children_map[pid])
 
-    # True roots: not children of any EXISTING parent, plus dangling children
+    # True roots: not children of any parent in the tree, plus dangling children
     root_ids = (all_project_ids - child_ids_set) | dangling
 
     tree = sorted(
-        [build_tree_node(rid, projects_map, children_map, team_map, dangling, dangling_parent_info) for rid in root_ids],
+        [build_tree_node(rid, projects_map, children_map, team_map, dangling, dangling_parent_info, deleted_ids) for rid in root_ids],
         key=lambda n: (n["name"] or ""),
     )
-    return {"projects": tree, "total_projects": len(all_projects)}
+    return {"projects": tree, "total_projects": len(all_project_ids), "deleted_count": len(deleted_ids)}
 
 
 # --- Error handlers ---
