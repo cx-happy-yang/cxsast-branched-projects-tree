@@ -89,8 +89,12 @@
   // -----------------------------------------------------------------------
   // Tree rendering
   // -----------------------------------------------------------------------
+  var renderedCount = 0;
+
   function renderTree() {
     $treeContent.innerHTML = '';
+    state.flatNodeMap.clear();
+    renderedCount = 0;
 
     if (!state.treeData || !state.treeData.projects || state.treeData.projects.length === 0) {
       $empty.classList.remove('hidden');
@@ -99,16 +103,27 @@
     }
 
     $empty.classList.add('hidden');
-    $projectCount.textContent = state.treeData.total_projects + ' projects';
+    var total = state.treeData.total_projects || 0;
+    $projectCount.textContent = total + ' projects';
 
     var frag = document.createDocumentFragment();
     state.treeData.projects.forEach(function (node) {
-      frag.appendChild(renderNode(node, 0));
+      try {
+        frag.appendChild(renderNode(node, 0));
+      } catch (e) {
+        console.error('Failed to render node', node, e);
+      }
     });
     $treeContent.appendChild(frag);
+
+    // Warn if some projects weren't rendered
+    if (renderedCount !== total) {
+      console.warn('Tree render: ' + renderedCount + ' of ' + total + ' projects rendered');
+    }
   }
 
   function renderNode(node, level) {
+    renderedCount++;
     var li = document.createElement('li');
     li.className = 'tree-node';
     li.dataset.projectId = node.project_id;
@@ -230,7 +245,11 @@
         childUl.classList.add('collapsed');
       }
       node.children.forEach(function (child) {
-        childUl.appendChild(renderNode(child, level + 1));
+        try {
+          childUl.appendChild(renderNode(child, level + 1));
+        } catch (e) {
+          console.error('Failed to render child', child, e);
+        }
       });
       li.appendChild(childUl);
     }
@@ -487,13 +506,17 @@
 
     var allNodes = $treeContent.querySelectorAll('.tree-node');
     var visibleCount = 0;
+    var missingCount = 0;
 
     for (var i = 0; i < allNodes.length; i++) {
       var li = allNodes[i];
       try {
         var pid = parseInt(li.dataset.projectId, 10);
         var node = state.flatNodeMap.get(pid);
-        if (!node) continue;
+        if (!node) {
+          missingCount++;
+          continue;
+        }
 
         var name = (node.name != null ? String(node.name) : '');
         var nameMatch = !textFilter || name.toLowerCase().indexOf(textFilter) !== -1;
@@ -509,6 +532,10 @@
       } catch (e) {
         // Skip nodes that cause errors (e.g., detached from DOM)
       }
+    }
+
+    if (missingCount > 0) {
+      console.warn('Filter: ' + missingCount + ' DOM nodes missing from flatNodeMap');
     }
 
     // Show "no matches" hint
