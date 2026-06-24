@@ -148,20 +148,16 @@ def build_full_tree():
     child_ids_set = set()
     for cids in children_map.values():
         child_ids_set.update(cids)
-    root_ids = all_project_ids - child_ids_set
 
-    roots = []
-    orphans = []
-    for rid in root_ids:
-        project = projects_map[rid]
-        if project.original_project_id is None or project.original_project_id == "":
-            roots.append(rid)
-        else:
-            orphans.append(rid)
-    roots.extend(orphans)
+    # Parents that actually exist
+    valid_parent_ids = child_ids_set & all_project_ids
+    # Branches whose parent was deleted — treat them as roots
+    dangling = child_ids_set - all_project_ids
+
+    root_ids = (all_project_ids - child_ids_set) | dangling
 
     tree = sorted(
-        [build_tree_node(rid, projects_map, children_map, team_map) for rid in roots],
+        [build_tree_node(rid, projects_map, children_map, team_map) for rid in root_ids],
         key=lambda n: (n["name"] or ""),
     )
     return {"projects": tree, "total_projects": len(all_projects)}
