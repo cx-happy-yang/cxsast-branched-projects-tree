@@ -27,6 +27,7 @@
   const $btnCollapseAll = document.getElementById('btn-collapse-all');
   const $filterInput = document.getElementById('filter-input');
   const $filterType = document.getElementById('filter-type');
+  const $statsBar = document.getElementById('stats-bar');
   const $notification = document.getElementById('notification');
   const $modalOverlay = document.getElementById('modal-overlay');
   const $modalList = document.getElementById('modal-project-list');
@@ -119,7 +120,8 @@
 
     $empty.classList.add('hidden');
     var total = state.treeData.total_projects || 0;
-    $projectCount.textContent = total + ' projects';
+    $projectCount.textContent = total + ' live';
+    $statsBar.textContent = 'Live: ' + total + ' | Shown: ' + total;
 
     var frag = document.createDocumentFragment();
     state.treeData.projects.forEach(function (node) {
@@ -545,8 +547,6 @@
           typeMatch = !node.is_deleted && (node.child_count > 0 || node.is_branched);
         } else if (filterMode === 'orphaned') {
           typeMatch = !!node.is_dangling;
-        } else if (filterMode === 'deleted') {
-          typeMatch = !!node.is_deleted;
         }
 
         if (nameMatch && typeMatch) {
@@ -575,6 +575,10 @@
         // Skip broken DOM nodes
       }
     }
+
+    // Update stats
+    var total = state.treeData.total_projects || 0;
+    $statsBar.textContent = 'Live: ' + total + ' | Shown: ' + visibleCount;
 
     // "No matches" hint
     var existing = document.getElementById('filter-no-match');

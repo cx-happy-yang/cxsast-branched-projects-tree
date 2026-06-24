@@ -83,8 +83,16 @@ body {
   flex-shrink: 0;
   gap: 10px;
 }
-.toolbar-left { display: flex; gap: 6px; }
+.toolbar-left { display: flex; gap: 6px; align-items: center; }
+.toolbar-mid { display: flex; gap: 6px; }
 .toolbar-right { display: flex; align-items: center; gap: 12px; }
+
+.stats-bar {
+  font-size: 0.8rem;
+  color: #636e72;
+  font-weight: 500;
+  white-space: nowrap;
+}
 .filter-label { font-size: 0.85rem; display: flex; align-items: center; gap: 4px; cursor: pointer; }
 .filter-input {
   padding: 4px 10px;

@@ -199,11 +199,56 @@ def build_full_tree():
     # True roots: not children of any parent in the tree, plus dangling children
     root_ids = (all_project_ids - child_ids_set) | dangling
 
+    # Only keep deleted projects that are ancestors of at least one live project.
+    # Walk up from each live project to find its deleted ancestors.
+    relevant_deleted = set()
+    for pid in live_ids:
+        current = projects_map[pid].original_project_id
+        while current and current != "":
+            cur_id = int(current)
+            if cur_id in deleted_ids:
+                relevant_deleted.add(cur_id)
+            # Move up to grandparent
+            if cur_id in projects_map:
+                current = projects_map[cur_id].original_project_id
+            else:
+                break
+
+    # Filter: keep all live projects + relevant deleted ancestors
+    keep_ids = live_ids | relevant_deleted
+    children_map = build_children_map(
+        [p for p in all_with_deleted if p.project_id in keep_ids]
+    )
+    projects_map = {p.project_id: p for p in all_with_deleted if p.project_id in keep_ids}
+
+    # Recompute root set with filtered data
+    all_project_ids = set(projects_map.keys())
+    child_ids_set = set()
+    for cids in children_map.values():
+        child_ids_set.update(cids)
+
+    # Dangling: live projects whose immediate parent is deleted
+    dangling = set()
+    deleted_parent_info = {}
+    for pid, cids in children_map.items():
+        if pid in deleted_ids:
+            dangling.update(cids)
+            if pid in projects_map:
+                deleted_parent_info[pid] = projects_map[pid].name
+
+    # Roots: projects that are NOT children of any kept project
+    root_ids = all_project_ids - child_ids_set
+
     tree = sorted(
-        [build_tree_node(rid, projects_map, children_map, team_map, dangling, dangling_parent_info, deleted_ids) for rid in root_ids],
+        [build_tree_node(rid, projects_map, children_map, team_map, dangling, deleted_parent_info, deleted_ids) for rid in root_ids],
         key=lambda n: (n["name"] or ""),
     )
-    return {"projects": tree, "total_projects": len(all_project_ids), "deleted_count": len(deleted_ids)}
+    return {
+        "projects": tree,
+        "total_projects": len(live_ids),
+        "total_in_tree": len(keep_ids),
+        "deleted_in_tree": len(relevant_deleted),
+    }
 
 
 # --- Error handlers ---
