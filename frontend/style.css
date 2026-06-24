@@ -213,6 +213,7 @@ body {
 .badge-branched { background: #ffeaa7; color: #6c5200; }
 .badge-standalone { background: #dfe6e9; color: #636e72; }
 .badge-deprecated { background: #fab1a0; color: #8b0000; }
+.badge-dangling { background: #ff7675; color: #fff; }
 
 .node-team { font-size: 0.8rem; color: #636e72; white-space: nowrap; }
 

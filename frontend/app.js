@@ -190,6 +190,13 @@
     label.appendChild(idSpan);
 
     // Badges
+    if (node.is_dangling) {
+      var dangBadge = document.createElement('span');
+      dangBadge.className = 'badge badge-dangling';
+      dangBadge.textContent = 'Orphaned';
+      dangBadge.title = 'Branched from a project that no longer exists (original parent #' + node.original_project_id + ')';
+      label.appendChild(dangBadge);
+    }
     if (node.is_deprecated) {
       var depBadge = document.createElement('span');
       depBadge.className = 'badge badge-deprecated';
