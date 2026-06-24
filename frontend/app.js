@@ -479,38 +479,71 @@
   // -----------------------------------------------------------------------
   // Filtering
   // -----------------------------------------------------------------------
+  var filterDebounceTimer = null;
+
   function applyFilter() {
-    var textFilter = ($filterInput.value || '').toLowerCase();
+    var textFilter = ($filterInput.value || '').trim().toLowerCase();
     var branchedOnly = $chkBranchedOnly.checked;
 
     var allNodes = $treeContent.querySelectorAll('.tree-node');
-    allNodes.forEach(function (li) {
-      var pid = parseInt(li.dataset.projectId, 10);
-      var node = state.flatNodeMap.get(pid);
-      if (!node) return;
+    var visibleCount = 0;
 
-      var nameMatch = !textFilter || (node.name || '').toLowerCase().indexOf(textFilter) !== -1;
-      var branchMatch = !branchedOnly || node.child_count > 0 || node.is_branched;
+    for (var i = 0; i < allNodes.length; i++) {
+      var li = allNodes[i];
+      try {
+        var pid = parseInt(li.dataset.projectId, 10);
+        var node = state.flatNodeMap.get(pid);
+        if (!node) continue;
 
-      if (nameMatch && branchMatch) {
-        li.classList.remove('hidden');
-        showAncestors(li);
-      } else {
-        li.classList.add('hidden');
+        var name = (node.name != null ? String(node.name) : '');
+        var nameMatch = !textFilter || name.toLowerCase().indexOf(textFilter) !== -1;
+        var branchMatch = !branchedOnly || node.child_count > 0 || node.is_branched;
+
+        if (nameMatch && branchMatch) {
+          li.classList.remove('hidden');
+          showAncestors(li);
+          visibleCount++;
+        } else {
+          li.classList.add('hidden');
+        }
+      } catch (e) {
+        // Skip nodes that cause errors (e.g., detached from DOM)
       }
-    });
+    }
+
+    // Show "no matches" hint
+    var existing = document.getElementById('filter-no-match');
+    if (textFilter && visibleCount === 0 && allNodes.length > 0) {
+      if (!existing) {
+        var hint = document.createElement('div');
+        hint.id = 'filter-no-match';
+        hint.className = 'empty-state';
+        hint.innerHTML = '<p>No projects match "' + escapeHtml(textFilter) + '"</p>';
+        $treeContent.appendChild(hint);
+      }
+    } else if (existing) {
+      existing.remove();
+    }
+  }
+
+  // Debounced wrapper for keystrokes
+  function onFilterChange() {
+    if (filterDebounceTimer) clearTimeout(filterDebounceTimer);
+    filterDebounceTimer = setTimeout(applyFilter, 150);
   }
 
   function showAncestors(li) {
     var parent = li.parentElement;
     while (parent) {
-      if (parent.classList.contains('tree-children')) {
-        parent.classList.remove('collapsed');
-        var parentLi = parent.parentElement;
-        if (parentLi && parentLi.classList.contains('tree-node')) {
-          parentLi.classList.remove('hidden');
+      try {
+        if (parent.classList.contains('tree-children')) {
+          parent.classList.remove('collapsed');
+          var parentLi = parent.parentElement;
+          if (parentLi && parentLi.classList.contains('tree-node')) {
+            parentLi.classList.remove('hidden');
+          }
         }
-      }
+      } catch (e) { /* skip broken DOM nodes */ }
       parent = parent.parentElement;
     }
   }
@@ -542,12 +575,8 @@
   });
   $btnExpandAll.addEventListener('click', expandAll);
   $btnCollapseAll.addEventListener('click', collapseAll);
-  $filterInput.addEventListener('input', function () {
-    applyFilter();
-  });
-  $chkBranchedOnly.addEventListener('change', function () {
-    applyFilter();
-  });
+  $filterInput.addEventListener('input', onFilterChange);
+  $chkBranchedOnly.addEventListener('change', applyFilter);
 
   // -----------------------------------------------------------------------
   // Utilities
