@@ -194,7 +194,11 @@
       var dangBadge = document.createElement('span');
       dangBadge.className = 'badge badge-dangling';
       dangBadge.textContent = 'Orphaned';
-      dangBadge.title = 'Branched from a project that no longer exists (original parent #' + node.original_project_id + ')';
+      if (node.orphan_info && node.orphan_info.parent_name) {
+        dangBadge.title = 'Branched from "' + node.orphan_info.parent_name + '" (#' + node.orphan_info.parent_id + ') - since deleted';
+      } else {
+        dangBadge.title = 'Branched from deleted project #' + node.original_project_id;
+      }
       label.appendChild(dangBadge);
     }
     if (node.is_deprecated) {
