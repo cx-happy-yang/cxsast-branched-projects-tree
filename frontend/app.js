@@ -10,6 +10,7 @@
     expandedIds: new Set(),
     flatNodeMap: new Map(),
   };
+  var renderedCount = 0;
 
   // -----------------------------------------------------------------------
   // DOM refs
@@ -74,7 +75,6 @@
   function checkHealth() {
     $serverInd.className = 'server-indicator checking';
     $serverInd.title = 'Checking server...';
-
     apiFetch('/api/health')
       .then(function (data) {
         $serverInd.className = 'server-indicator online';
@@ -87,14 +87,29 @@
   }
 
   // -----------------------------------------------------------------------
+  // Flat map (built from raw tree data — independent of DOM rendering)
+  // -----------------------------------------------------------------------
+  function buildFlatMapFromData(nodes) {
+    state.flatNodeMap.clear();
+    function walk(list) {
+      for (var i = 0; i < list.length; i++) {
+        var n = list[i];
+        state.flatNodeMap.set(n.project_id, n);
+        if (n.children && n.children.length > 0) {
+          walk(n.children);
+        }
+      }
+    }
+    walk(nodes);
+  }
+
+  // -----------------------------------------------------------------------
   // Tree rendering
   // -----------------------------------------------------------------------
-  var renderedCount = 0;
-
   function renderTree() {
     $treeContent.innerHTML = '';
-    state.flatNodeMap.clear();
     renderedCount = 0;
+    state.flatNodeMap.clear();
 
     if (!state.treeData || !state.treeData.projects || state.treeData.projects.length === 0) {
       $empty.classList.remove('hidden');
@@ -111,14 +126,16 @@
       try {
         frag.appendChild(renderNode(node, 0));
       } catch (e) {
-        console.error('Failed to render node', node, e);
+        console.error('Failed to render root node', node, e);
       }
     });
     $treeContent.appendChild(frag);
 
-    // Warn if some projects weren't rendered
+    // Rebuild flatMap from data (not DOM — ensures all nodes are tracked)
+    buildFlatMapFromData(state.treeData.projects);
+
     if (renderedCount !== total) {
-      console.warn('Tree render: ' + renderedCount + ' of ' + total + ' projects rendered');
+      console.warn('Tree render: ' + renderedCount + ' of ' + total + ' projects rendered to DOM');
     }
   }
 
@@ -133,9 +150,9 @@
 
     // Toggle button
     var toggle = document.createElement('button');
-    toggle.className = 'toggle-btn' + (node.children.length > 0 ? '' : ' empty');
+    toggle.className = 'toggle-btn' + (node.children && node.children.length > 0 ? '' : ' empty');
     toggle.innerHTML = '&#9654;';
-    toggle.title = node.children.length + ' child(ren)';
+    toggle.title = (node.children ? node.children.length : 0) + ' child(ren)';
     if (state.expandedIds.has(node.project_id)) {
       toggle.classList.add('expanded');
     }
@@ -145,7 +162,7 @@
     });
     row.appendChild(toggle);
 
-    // Checkbox — all nodes are enabled; parent selection cascades to descendants
+    // Checkbox
     var cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.className = 'node-checkbox';
@@ -212,10 +229,10 @@
 
     row.appendChild(label);
 
-    // Single delete button — works for any node (cascades to descendants)
+    // Single delete button
     var delBtn = document.createElement('button');
     delBtn.className = 'delete-single';
-    delBtn.textContent = '✕';
+    delBtn.textContent = '\u2715';
     delBtn.title = node.is_leaf ? 'Delete this project' : 'Delete this project and all ' + countDescendants(node) + ' descendants';
     delBtn.addEventListener('click', function (e) {
       e.stopPropagation();
@@ -224,8 +241,7 @@
     });
     row.appendChild(delBtn);
 
-    // Row click: toggle selection for this node and all descendants.
-    // Skip if checkbox itself was clicked (native toggle + change handler handles it).
+    // Row click
     row.addEventListener('click', function (e) {
       if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'checkbox') {
         return;
@@ -238,7 +254,7 @@
     li.appendChild(row);
 
     // Children
-    if (node.children.length > 0) {
+    if (node.children && node.children.length > 0) {
       var childUl = document.createElement('ul');
       childUl.className = 'tree-children';
       if (!state.expandedIds.has(node.project_id)) {
@@ -248,23 +264,20 @@
         try {
           childUl.appendChild(renderNode(child, level + 1));
         } catch (e) {
-          console.error('Failed to render child', child, e);
+          console.error('Failed to render child node', child, e);
         }
       });
       li.appendChild(childUl);
     }
 
-    state.flatNodeMap.set(node.project_id, node);
     return li;
   }
 
   function toggleNode(projectId, li) {
     var children = li.querySelector(':scope > .tree-children');
     if (!children) return;
-
     var toggle = li.querySelector(':scope > .node-row .toggle-btn');
     var collapsed = children.classList.toggle('collapsed');
-
     if (collapsed) {
       state.expandedIds.delete(projectId);
       if (toggle) toggle.classList.remove('expanded');
@@ -282,7 +295,7 @@
   }
 
   function expandAllRecursive(node) {
-    if (node.children.length > 0) {
+    if (node.children && node.children.length > 0) {
       state.expandedIds.add(node.project_id);
       node.children.forEach(expandAllRecursive);
     }
@@ -296,10 +309,9 @@
   // -----------------------------------------------------------------------
   // Selection (cascade)
   // -----------------------------------------------------------------------
-
   function collectDescendantIds(node) {
     var ids = [];
-    node.children.forEach(function (child) {
+    (node.children || []).forEach(function (child) {
       ids.push(child.project_id);
       ids = ids.concat(collectDescendantIds(child));
     });
@@ -308,18 +320,16 @@
 
   function countDescendants(node) {
     var count = 0;
-    node.children.forEach(function (child) {
+    (node.children || []).forEach(function (child) {
       count += 1 + countDescendants(child);
     });
     return count;
   }
 
   function collectLeafNodes(node) {
-    if (node.is_leaf) {
-      return [node];
-    }
+    if (node.is_leaf) return [node];
     var leaves = [];
-    node.children.forEach(function (child) {
+    (node.children || []).forEach(function (child) {
       leaves = leaves.concat(collectLeafNodes(child));
     });
     return leaves;
@@ -331,7 +341,7 @@
     } else {
       state.selectedIds.delete(node.project_id);
     }
-    node.children.forEach(function (child) {
+    (node.children || []).forEach(function (child) {
       setNodeChecked(child, checked);
     });
   }
@@ -341,8 +351,7 @@
     if (state.selectedIds.has(node.project_id)) return false;
     var allDescendants = collectDescendantIds(node);
     if (allDescendants.length === 0) return false;
-    var some = allDescendants.some(function (id) { return state.selectedIds.has(id); });
-    return some;
+    return allDescendants.some(function (id) { return state.selectedIds.has(id); });
   }
 
   function refreshAllCheckboxes() {
@@ -389,15 +398,12 @@
       notify('No projects selected for deletion.', 'info');
       return;
     }
-
     var leafIds = collectLeavesFromNodes(list).map(function (n) { return n.project_id; });
-
     $modalList.innerHTML = list.map(function (n) {
-      var label = n.is_leaf ? '' : ' <span style="color:#636e72;font-size:0.8rem">(including ' + countDescendants(n) + ' descendant' + (countDescendants(n) !== 1 ? 's' : '') + ')</span>';
-      return '<div class="modal-item">#' + n.project_id + ' &mdash; ' + escapeHtml(n.name) + label + '</div>';
+      var label = n.is_leaf ? '' : ' <span style=\"color:#636e72;font-size:0.8rem\">(including ' + countDescendants(n) + ' descendant' + (countDescendants(n) !== 1 ? 's' : '') + ')</span>';
+      return '<div class=\"modal-item\">#' + n.project_id + ' &mdash; ' + escapeHtml(n.name) + label + '</div>';
     }).join('');
     $modalOverlay.classList.remove('hidden');
-
     $modalConfirm.onclick = function () {
       executeBatchDelete(leafIds);
       $modalOverlay.classList.add('hidden');
@@ -405,16 +411,11 @@
   }
 
   function getSelectedNodesForDisplay() {
-    // Return only the topmost selected nodes — if a parent is selected,
-    // don't also list its already-selected children separately.
     var result = [];
     state.selectedIds.forEach(function (id) {
       var node = state.flatNodeMap.get(id);
       if (!node) return;
-      // Omit if this node's parent is also selected
-      if (node.original_project_id && state.selectedIds.has(parseInt(node.original_project_id, 10))) {
-        return;
-      }
+      if (node.original_project_id && state.selectedIds.has(parseInt(node.original_project_id, 10))) return;
       result.push(node);
     });
     result.sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
@@ -426,7 +427,6 @@
     nodes.forEach(function (n) {
       leaves = leaves.concat(collectLeafNodes(n));
     });
-    // Deduplicate
     var seen = new Set();
     return leaves.filter(function (n) {
       if (seen.has(n.project_id)) return false;
@@ -442,7 +442,6 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ project_ids: projectIds }),
       });
-
       var msg = 'Deleted ' + data.deleted_count + ' project(s).';
       if (data.errors && data.errors.length > 0) {
         msg += ' ' + data.errors.length + ' error(s) occurred.';
@@ -461,13 +460,13 @@
   async function fetchTree() {
     setLoading(true);
     clearSelection();
-    state.flatNodeMap.clear();
 
     try {
       var data = await apiFetch('/api/projects/tree');
       state.treeData = data;
 
-      // Auto-expand to show structure for moderate tree sizes
+      buildFlatMapFromData(data.projects);
+
       var total = data.total_projects || 0;
       if (total <= 50) {
         state.expandedIds.clear();
@@ -477,9 +476,9 @@
       } else {
         state.expandedIds.clear();
         data.projects.forEach(function (node) {
-          if (node.children.length > 0) state.expandedIds.add(node.project_id);
-          node.children.forEach(function (c) {
-            if (c.children.length > 0) state.expandedIds.add(c.project_id);
+          if (node.children && node.children.length > 0) state.expandedIds.add(node.project_id);
+          (node.children || []).forEach(function (c) {
+            if (c.children && c.children.length > 0) state.expandedIds.add(c.project_id);
           });
         });
       }
@@ -488,7 +487,7 @@
       checkHealth();
       notify('Loaded ' + total + ' projects.', 'success');
     } catch (err) {
-      $treeContent.innerHTML = '<div class="empty-state"><p>Failed to connect to CxSAST. Check that the server is running and your credentials in <code>backend/.env</code> are correct.</p><p style="font-size:0.85rem;color:#b2bec3;margin-top:8px">' + escapeHtml(err.message) + '</p></div>';
+      $treeContent.innerHTML = '<div class=\"empty-state\"><p>Failed to connect to CxSAST. Check that the server is running and your credentials in <code>backend/.env</code> are correct.</p><p style=\"font-size:0.85rem;color:#b2bec3;margin-top:8px\">' + escapeHtml(err.message) + '</p></div>';
       notify('Failed to load projects: ' + err.message, 'error');
     } finally {
       setLoading(false);
@@ -496,7 +495,8 @@
   }
 
   // -----------------------------------------------------------------------
-  // Filtering
+  // Filtering (searches flatNodeMap data, not DOM — robust even if DOM
+  // rendering fails for some nodes in very large trees)
   // -----------------------------------------------------------------------
   var filterDebounceTimer = null;
 
@@ -504,25 +504,30 @@
     var textFilter = ($filterInput.value || '').trim().toLowerCase();
     var branchedOnly = $chkBranchedOnly.checked;
 
+    var matchingIds = new Set();
+
+    if (textFilter || branchedOnly) {
+      // Search the DATA (flatNodeMap), not the DOM
+      state.flatNodeMap.forEach(function (node, pid) {
+        var name = (node.name != null ? String(node.name) : '');
+        var nameMatch = !textFilter || name.toLowerCase().indexOf(textFilter) !== -1;
+        var branchMatch = !branchedOnly || node.child_count > 0 || node.is_branched;
+        if (nameMatch && branchMatch) {
+          matchingIds.add(pid);
+        }
+      });
+    }
+
+    // Update DOM visibility
     var allNodes = $treeContent.querySelectorAll('.tree-node');
     var visibleCount = 0;
-    var missingCount = 0;
 
     for (var i = 0; i < allNodes.length; i++) {
       var li = allNodes[i];
       try {
         var pid = parseInt(li.dataset.projectId, 10);
-        var node = state.flatNodeMap.get(pid);
-        if (!node) {
-          missingCount++;
-          continue;
-        }
-
-        var name = (node.name != null ? String(node.name) : '');
-        var nameMatch = !textFilter || name.toLowerCase().indexOf(textFilter) !== -1;
-        var branchMatch = !branchedOnly || node.child_count > 0 || node.is_branched;
-
-        if (nameMatch && branchMatch) {
+        var show = !textFilter && !branchedOnly ? true : matchingIds.has(pid);
+        if (show) {
           li.classList.remove('hidden');
           showAncestors(li);
           visibleCount++;
@@ -530,22 +535,18 @@
           li.classList.add('hidden');
         }
       } catch (e) {
-        // Skip nodes that cause errors (e.g., detached from DOM)
+        // Skip broken DOM nodes
       }
     }
 
-    if (missingCount > 0) {
-      console.warn('Filter: ' + missingCount + ' DOM nodes missing from flatNodeMap');
-    }
-
-    // Show "no matches" hint
+    // "No matches" hint
     var existing = document.getElementById('filter-no-match');
     if (textFilter && visibleCount === 0 && allNodes.length > 0) {
       if (!existing) {
         var hint = document.createElement('div');
         hint.id = 'filter-no-match';
         hint.className = 'empty-state';
-        hint.innerHTML = '<p>No projects match "' + escapeHtml(textFilter) + '"</p>';
+        hint.innerHTML = '<p>No projects match \"' + escapeHtml(textFilter) + '\"</p>';
         $treeContent.appendChild(hint);
       }
     } else if (existing) {
@@ -553,7 +554,6 @@
     }
   }
 
-  // Debounced wrapper for keystrokes
   function onFilterChange() {
     if (filterDebounceTimer) clearTimeout(filterDebounceTimer);
     filterDebounceTimer = setTimeout(applyFilter, 150);
