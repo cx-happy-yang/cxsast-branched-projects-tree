@@ -302,6 +302,48 @@ def get_teams():
     })
 
 
+@app.route("/api/debug")
+def debug_info():
+    """Diagnostic endpoint: shows exactly what the SDK returns from CxSAST."""
+    all_projects, err = _safe_sdk_call(get_all_projects)
+    if err:
+        return jsonify({"error": err}), 500
+
+    teams, team_err = _safe_sdk_call(team_api.get_all_teams)
+
+    # Build team id → full_name map
+    team_map = {}
+    if teams:
+        for t in teams:
+            team_map[str(t.team_id)] = t.full_name
+
+    # Count projects per team
+    per_team = {}
+    for p in all_projects:
+        tid = str(p.team_id) if p.team_id else "(none)"
+        per_team.setdefault(tid, 0)
+        per_team[tid] += 1
+
+    # Check for expected teams that are missing
+    all_team_names = [t.full_name for t in teams] if teams else []
+    project_team_ids = {str(p.team_id) for p in all_projects if p.team_id}
+    unknown_teams = [tid for tid in project_team_ids if tid not in team_map]
+    empty_teams = [tn for tn in all_team_names if tn not in [
+        team_map.get(str(p.team_id)) for p in all_projects
+    ]]
+
+    return jsonify({
+        "total_projects": len(all_projects),
+        "total_teams_in_api": len(teams) if teams else 0,
+        "projects_per_team": dict(sorted(per_team.items())),
+        "team_name_map": {str(k): v for k, v in sorted(team_map.items())},
+        "unknown_team_ids": unknown_teams,
+        "teams_with_no_projects": empty_teams,
+        "server_base_url": config.server_base_url,
+        "username": config.username,
+    })
+
+
 # --- Main ---
 if __name__ == "__main__":
     port = int(os.getenv("APP_PORT", "5000"))
